@@ -57,10 +57,7 @@ func (m *Map) Get(key string) string {
 	index := sort.Search(len(m.keys), func(i int) bool {
 		return m.keys[i] >= hash
 	})
-	//fmt.Printf("长度%d \n", len(m.keys))
-	//fmt.Printf("下标%d \n", index)
-	//fmt.Printf("取余 %d \n", m.keys[index%len(m.keys)])
-	//fmt.Println(m.hashMap)
+
 	// 4.获取第一个符合的hash的下标
 	return m.hashMap[m.keys[index%len(m.keys)]]
 }
