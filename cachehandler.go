@@ -2,6 +2,7 @@ package cache
 
 import (
 	"fmt"
+	pb "github.com/869413421/cache/proto/pbcache"
 	"github.com/869413421/cache/singleflight"
 	"log"
 	"sync"
@@ -64,11 +65,13 @@ func (g *Group) RegisterPeers(peers PeerPicker) {
 
 // getFormPeer 从远程节点获取缓存
 func (g *Group) getFormPeer(peer PeerGetter, key string) (ByteView, error) {
-	bytes, err := peer.Get(g.name, key)
+	req := &pb.Request{Group: g.name, Key: key}
+	res := &pb.Response{}
+	err := peer.Get(req, res)
 	if err != nil {
 		return ByteView{}, err
 	}
-	return ByteView{b: bytes}, nil
+	return ByteView{b: res.Value}, nil
 }
 
 // load 载入缓存，返回数据

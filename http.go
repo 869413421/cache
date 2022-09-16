@@ -3,6 +3,8 @@ package cache
 import (
 	"fmt"
 	"github.com/869413421/cache/consistenthash"
+	pb "github.com/869413421/cache/proto/pbcache"
+	"google.golang.org/protobuf/proto"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -73,8 +75,14 @@ func (pool *HTTPPool) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	body, err := proto.Marshal(&pb.Response{Value: view.ByteSlice()})
+	if err != nil {
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	writer.Header().Set("Content-Type", "application/octet-stream")
-	writer.Write(view.ByteSlice())
+	writer.Write(body)
 }
 
 // Set 添加节点，方法实例化了一致性哈希算法，并且添加了传入的节点
@@ -109,27 +117,31 @@ type HttpGetter struct {
 }
 
 // Get 远程获取缓存
-func (h *HttpGetter) Get(group string, key string) ([]byte, error) {
+func (h *HttpGetter) Get(req *pb.Request, res *pb.Response) error {
 	// 1.构建远程访问路径
-	path := fmt.Sprintf("%v%v/%v", h.baseURL, url.QueryEscape(group), url.QueryEscape(key))
+	path := fmt.Sprintf("%v%v/%v", h.baseURL, url.QueryEscape(req.GetGroup()), url.QueryEscape(req.GetKey()))
 
 	// 2.发起请求
 	response, err := http.Get(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer response.Body.Close()
 
 	// 3.判断请求
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned:%v", response.StatusCode)
+		return fmt.Errorf("server returned:%v", response.StatusCode)
 	}
 
 	// 4.读取响应内容
 	bytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response body: %v", err)
+		return fmt.Errorf("reading response body: %v", err)
 	}
 
-	return bytes, nil
+	if err = proto.Unmarshal(bytes, res); err != nil {
+		return fmt.Errorf("decoding response body: %v", err)
+	}
+
+	return nil
 }
